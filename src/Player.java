@@ -1,5 +1,4 @@
 import org.academiadecodigo.bootcamp.Prompt;
-import org.academiadecodigo.bootcamp.scanners.string.StringInputScanner;
 
 import java.io.*;
 import java.net.Socket;
@@ -11,22 +10,25 @@ public class Player implements Runnable {
     private String name;
     private PrintStream out;
     private InputStream in;
-    private GameServer gameServer;
+    private Game game;
+    private int position;
     private ACIIArt art;
+    private Messages message;
 
-    Player(GameServer gameServer, Socket clientSocket) {
-        this.gameServer = gameServer;
+    Player(Game game, Socket clientSocket) {
+        this.game = game;
         this.clientSocket = clientSocket;
+        this.position = 0;
     }
 
-    private void start(){
+    private void start() {
 
-        try{
+        try {
             this.out = new PrintStream(clientSocket.getOutputStream());
             this.in = clientSocket.getInputStream();
             this.prompt = new Prompt(in, out);
 
-        } catch (IOException e){
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
@@ -40,83 +42,122 @@ public class Player implements Runnable {
         BufferedReader userInputStream = null;
         String message = "";
 
-        while (!clientSocket.isClosed()){
-            synchronized (this){
-                try{
+        while (!clientSocket.isClosed()) {
+            synchronized (this) {
+                try {
                     userInputStream = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-                    if ((message = userInputStream.readLine()) == null){
+                    if ((message = userInputStream.readLine()) == null) {
                         exit();
                         return;
                     }
-                    System.out.println("Press r to roll the dice");
+
+                    if (game.endGame) {
+                        broadcastMessage(art.defeat());
+                        exit();
+                    }
+                    // TODO: 10/28/2019 broadcast do ascii art dos dados 
+                    // TODO: 10/28/2019 fazer turnos
+                    // TODO: 10/28/2019 mensagem de YouLost aparece no player que vence
+                    broadcastMessage(art.yourTurn() + "\n");
+                    broadcastMessage("\nPress R to roll the dice, " + name + ". \n");
+                    System.out.println("Press R to roll the dice");
                     getPlayerInput(message);
 
-                } catch (IOException e){
+                    int newPosition = game.checkPosition(position);
+                    position = newPosition;
+                    broadcastMessage("\n" + "You are now in the House Number : " + newPosition + "\n" +
+                            "Now just wait 5 seconds please ok?" + "\n");
+                    System.out.println(newPosition);
+                    System.out.println("Your position is now: " + newPosition);
+                    //broadcastMessage(newPosition);
+                    game.checkVictory(this, position);
+
+                } catch (IOException e) {
                     e.printStackTrace();
                 }
             }
         }
     }
 
+    public int getPosition() {
+        return position;
+    }
+
     public int rollDice() {
-        int dice = (int) (Math.ceil(Math.random() * 6));
-        System.out.println("You rolled " + dice);
-        if (dice == 1){
-            System.out.println(art.dice1());
+        int diceNumber = (int) (Math.ceil(Math.random() * 6));
+        /*
+        if (diceNumber == 1){
+            broadcastMessage(art.dice1());
         }
-        if (dice == 2){
-            System.out.println(art.dice2());
+        if (diceNumber == 2){
+            broadcastMessage(art.dice2());
         }
-        if (dice == 3){
-            System.out.println(art.dice3());
+        if (diceNumber == 3){
+            broadcastMessage(art.dice3());
         }
-        if (dice == 4){
-            System.out.println(art.dice4());
+        if (diceNumber == 4){
+            broadcastMessage(art.dice4());
         }
-        if (dice == 5){
-            System.out.println(art.dice5());
+        if (diceNumber == 5){
+            broadcastMessage(art.dice5());
         }
-        if (dice == 6){
-            System.out.println(art.dice6());
+        if (diceNumber == 6){
+            broadcastMessage(art.dice6());
         }
-        return dice;
+
+         */
+
+        position += diceNumber;
+        broadcastMessage("You rolled a: " + diceNumber + "\n");
+        System.out.println("You rolled a " + diceNumber);
+        System.out.println(position);
+        return diceNumber;
     }
 
-    private String setName(){
+    private String setName() {
         String user = Thread.currentThread().getName();
-        return "Knight " + user.substring(user.length() -1);
+        return "Knight " + user.substring(user.length() - 1);
     }
 
-    private void getPlayerInput(String message){
-        if (message.equals("")){
+    public void changeName(String name) {
+        this.name = name;
+    }
+
+    private void getPlayerInput(String message) {
+        if (message.equals("")) {
             return;
         }
-        if (message.equals("r")){
+        if (message.equals("r")) {
             rollDice();
+        }
+        if (message.startsWith("/name")) {
+            String newName = message.substring(5);
+            System.out.println(name + " changed his name to " + newName);
+            changeName(newName);
         }
     }
 
-    public void broadcastMessage(String message){
-        gameServer.broadcast(this, message);
+    public void broadcastMessage(String message) {
+        game.broadcast(this, message);
     }
 
-    private void exit(){
+    public void broadcastMessage(int position) {
+        game.broadcast(this, position);
+    }
+
+    private void exit() {
 
         try {
             in.close();
             out.close();
             clientSocket.close();
 
-        }catch (IOException e){
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    public Socket getClientSocket(){
+    public Socket getClientSocket() {
         return clientSocket;
-    }
-
-    public Prompt getPrompt(){
-        return prompt;
     }
 }

@@ -13,8 +13,8 @@ public class Main {
         System.out.println("Set limit of players");
         int players = scanner.nextInt();
 
-        GameServer gameServer = new GameServer(port,players);
-        gameServer.listen();
+        Game game = new Game(port);
+        game.listen();
 
     }
 }
