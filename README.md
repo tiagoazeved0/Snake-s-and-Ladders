@@ -1,4 +1,4 @@
-# GloryGame
+# SaveThePrincess
 Project developed by 4 people during 3 days, as the second work group project at <Academia de Codigo> 34# bootcamp;
 
 # Build
